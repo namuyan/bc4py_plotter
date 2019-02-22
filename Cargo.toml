@@ -1,0 +1,12 @@
+[package]
+name = "bc4py_plotter"
+version = "0.1.0"
+authors = ["namuyan <thhjuuATyahoo.co.jp>"]
+edition = "2018"
+
+[dependencies]
+sha2 = "0.8.0"
+reqwest = "0.9.10"
+colored = "1.7"
+serde_json = "1.0"
+workerpool = "1.2.0"
