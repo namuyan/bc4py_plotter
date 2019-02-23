@@ -3,7 +3,8 @@
 extern crate bc4py_plotter;
 extern crate test;
 
-use bc4py_plotter::*;
+use bc4py_plotter::cli_tool::*;
+use bc4py_plotter::pochash::*;
 use std::sync::mpsc::channel;
 use std::sync::{Mutex, Arc};
 use workerpool::Pool;
