@@ -10,7 +10,6 @@ use std::sync::{Mutex, Arc};
 use workerpool::Pool;
 use workerpool::thunk::{Thunk, ThunkWorker};
 use std::time::{Instant, Duration};
-use std::io::Write;
 use colored::Colorize;
 
 
@@ -47,6 +46,7 @@ fn main() {
     };
     let worker_num: usize = ask_user("how many worker?", "1")
         .parse().expect("worker size is number");
+    println!("finish all parameter questions. wait...");
 
     // throw jobs to worker pool
     let (tx, rx) = channel();
@@ -57,8 +57,7 @@ fn main() {
         let start_pos = index * section_size;
         let end_pos = (index + 1) * section_size;
         let address = address.clone();
-        let dest = dest.clone();
-        let tmp = tmp.clone();
+        let (dest, tmp) = (dest.clone(), tmp.clone());
         let lock = lock.clone();
         pool.execute_to(tx.clone(), Thunk::of( move || {
             let result = plotting(&address, start_pos, end_pos, &tmp, &dest, lock);
@@ -68,17 +67,15 @@ fn main() {
 
     // waiting for result
     let now = Instant::now();
-    print!("success throw {} jobs, waiting...", section_num);
-    std::io::stdout().flush().unwrap();
+    println!("\rmsg: success throw {} jobs, waiting...", section_num);
     for (index, (start_pos, end_pos, result)) in rx.iter().enumerate() {
         let index = index as u32 + 1;
         match result {
-            Ok(_) => print!("\rfinish {} to {} nonce, {}/{}section, {}minutes",
+            Ok(_) => println!("\rmsg: finish {} to {} nonce, {}/{}section, {}minutes passed",
                  start_pos.to_string().bold(), end_pos.to_string().bold(),
                  index, section_num, now.elapsed().as_secs() / 60),
-            Err(err_string) => eprintln!("Error: {}", err_string.bold())
+            Err(err_string) => eprintln!("\rError: {}", err_string.bold())
         };
-        std::io::stdout().flush().unwrap();
         if index  == section_num {
             break;
         }

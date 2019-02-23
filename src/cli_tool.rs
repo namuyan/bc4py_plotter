@@ -58,7 +58,7 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, lock
     if !tmp_dir.exists() {
         match create_dir(tmp_dir){
             Ok(_) => (),
-            Err(err) => eprintln!("Error: failed create tmp_dir by \"{}\"", err.to_string().bold())
+            Err(err) => eprintln!("\rError: failed create tmp_dir by \"{}\"", err.to_string().bold())
         };
     }
 
@@ -70,8 +70,13 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, lock
         for nonce in start..end {
             let b = generator(address, nonce);
             wfs.write(&b).unwrap();
+            if nonce % 800 == 0 {
+                print!("\rmsg: generating poc hash of {}% of {} to {} nonce",
+                       (nonce-start)*100/(end-start), start, end);
+            }
         }
         wfs.flush().unwrap();
+        print!("\rmsg: create unoptimized file {} to {} nonce", start, end);
     }
 
     // unoptimized file => optimized file
@@ -82,25 +87,28 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, lock
         let mut rfs = BufReader::new(File::open(unoptimized_path.clone())
             .expect("cannot open unoptimized file"));
         let section_size = HASH_LOOP_COUNT * HASH_LENGTH;
-        let section_count = section_size / 32;
+        let scope_count = section_size / 32;
         let relative_size = section_size as i64 - 32;
         let mut buffer = [0u8; 32];
-        for section in 0..section_count {
-            let start_pos = section * 32;
+        for scope in 0..scope_count {
+            let start_pos = scope * 32;
             rfs.seek(SeekFrom::Start(start_pos as u64)).unwrap();
-            for index in start..end {
+            for nonce in start..end {
                 match  rfs.read(&mut buffer) {
                     Ok(32) => {
                         wfs.write(&buffer).unwrap();
                         rfs.seek(SeekFrom::Current(relative_size)).unwrap();
                     },
                     Ok(size) => panic!(format!(
-                        "Error incorrect size {}!=32bytes {}of{}", size.to_string().bold(), index, section)),
+                        "Error incorrect size {}!=32bytes {}of{}", size.to_string().bold(), nonce, scope)),
                     Err(err) => panic!(format!(
-                        "Error {} {}of{}", err.to_string().bold(), index, section))
+                        "Error {} {}of{}", err.to_string().bold(), nonce, scope))
                 }
             }
             wfs.flush().unwrap();
+            if scope % 100 == 0{
+                print!("\rmsg: {}/{} convert to optimized {} to {} nonce", scope, scope_count-1, start, end);
+            }
         }
     }
     remove_file(unoptimized_path).unwrap();
@@ -110,7 +118,7 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, lock
     if !dest_dir.exists() {
         match create_dir(dest_dir){
             Ok(_) => (),
-            Err(err) => eprintln!("Error: failed create dest_dir by \"{}\"", err.to_string().bold())
+            Err(err) => eprintln!("\rError: failed create dest_dir by \"{}\"", err.to_string().bold())
         };
     }
     let dest_path = dest_dir.join(format!("optimized.{}-{}-{}.dat",address, start, end));
@@ -121,6 +129,7 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, lock
     } else {
         return match copy(optimized_path.clone(), dest_path) {
             Ok(_) => {
+                print!("\rmsg: success copy optimized file to dest");
                 return match remove_file(optimized_path) {
                     Ok(_) => Ok(()),
                     Err(err) => Err(String::from(
