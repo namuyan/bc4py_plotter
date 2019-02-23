@@ -5,7 +5,8 @@ use serde_json::Value;
 use std::fs::{create_dir, File, copy, remove_file};
 use std::path::Path;
 use std::sync::{Mutex, Arc};
-
+use std::thread::sleep;
+use std::time::Duration;
 
 pub fn ask_user(question: &str, default: &str) ->String {
     print!("Q. {} default=\"{}\" >> ", question.underline(), default.bold());
@@ -127,17 +128,30 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, lock
     if tmp_dir == dest_dir {
         return Ok(());
     } else {
-        return match copy(optimized_path.clone(), dest_path) {
-            Ok(_) => {
-                print!("\rmsg: success copy optimized file to dest");
-                return match remove_file(optimized_path) {
-                    Ok(_) => Ok(()),
-                    Err(err) => Err(String::from(
-                        format!("failed to remove original file by {}", err.to_string().bold())))
-                };
-            },
-            Err(err) => Err(String::from(
-                format!("failed to move optimized file by {}", err.to_string().bold())))
-        };
+        let mut count = 5;
+        loop {
+            match copy(optimized_path.clone(), dest_path.clone()) {
+                Ok(_) => {
+                    print!("\rmsg: success copy optimized file to dest");
+                    return match remove_file(optimized_path) {
+                        Ok(_) => Ok(()),
+                        Err(err) => Err(String::from(
+                            format!("failed to remove original file by {}", err.to_string().bold())))
+                    };
+                },
+                Err(err) => {
+                    let err = String::from(
+                    format!("failed to move optimized file by {}", err.to_string().bold()));
+                    count -= 1;
+                    if count > 0 {
+                        print!("\r{}, retry {} after 5Secs", err, count);
+                        sleep(Duration::from_secs(5));
+                        continue
+                    } else {
+                        return Err(err);
+                    }
+                }
+            };
+        }
     };
 }
