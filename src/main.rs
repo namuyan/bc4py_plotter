@@ -6,7 +6,6 @@ extern crate test;
 use bc4py_plotter::cli_tool::*;
 use bc4py_plotter::pochash::*;
 use std::sync::mpsc::channel;
-use std::sync::{Mutex, Arc};
 use workerpool::Pool;
 use workerpool::thunk::{Thunk, ThunkWorker};
 use std::time::{Instant, Duration};
@@ -16,7 +15,7 @@ use colored::Colorize;
 fn main() {
     println!("bc4py proof of capacity plotter.");
     let dest = ask_user("destination path?", "./plots");
-    let tmp = ask_user("temporary folder?", &dest);
+    let tmp = ask_user("temporary folder?", "./plots");
     let mut address = ask_user("address or node?", "<AddressFormat>");
     if address.len() != 40 {
         let proto = ask_user("node proto?", "http");
@@ -50,7 +49,6 @@ fn main() {
 
     // throw jobs to worker pool
     let (tx, rx) = channel();
-    let lock = Arc::new(Mutex::new(0));
     let pool = Pool::<ThunkWorker<(u32, u32, Result<(), String>)>>::new(worker_num);
     for index in 0..section_num {
         std::thread::sleep(Duration::from_secs(1));
@@ -58,9 +56,8 @@ fn main() {
         let end_pos = (index + 1) * section_size;
         let address = address.clone();
         let (dest, tmp) = (dest.clone(), tmp.clone());
-        let lock = lock.clone();
         pool.execute_to(tx.clone(), Thunk::of( move || {
-            let result = plotting(&address, start_pos, end_pos, &tmp, &dest, lock);
+            let result = plotting(&address, start_pos, end_pos, &tmp, &dest);
             (start_pos, end_pos, result)
         }));
     };

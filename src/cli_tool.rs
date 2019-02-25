@@ -2,9 +2,8 @@ use crate::pochash::{HASH_LOOP_COUNT,HASH_LENGTH,generator};
 use std::io::{BufReader, BufWriter, Read, Write, Seek, SeekFrom};
 use colored::Colorize;
 use serde_json::Value;
-use std::fs::{create_dir, File, copy, remove_file};
+use std::fs::{create_dir, File, remove_file};
 use std::path::Path;
-use std::sync::{Mutex, Arc};
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -54,7 +53,7 @@ pub fn address_request(proto: &str, url: &str, username: &str, password: &str) -
     Ok(address.to_owned())
 }
 
-pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, lock: Arc<Mutex<u32>>) ->Result<(), String> {
+pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Result<(), String> {
     let tmp_dir = Path::new(tmp);
     if !tmp_dir.exists() {
         match create_dir(tmp_dir){
@@ -81,7 +80,15 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, lock
     }
 
     // unoptimized file => optimized file
-    let optimized_path = tmp_dir.join(format!("optimized.{}-{}-{}.dat",address, start, end));
+    sleep(Duration::from_secs(5));
+    let dest_dir = Path::new(dest);
+    if !dest_dir.exists() {
+        match create_dir(dest_dir){
+            Ok(_) => (),
+            Err(err) => eprintln!("\rError: failed create dest_dir by \"{}\"", err.to_string().bold())
+        };
+    }
+    let optimized_path = dest_dir.join(format!("optimized.{}-{}-{}.dat",address, start, end));
     {
         let mut wfs = BufWriter::new(File::create(optimized_path.clone())
             .expect("cannot create optimized file"));
@@ -114,44 +121,5 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, lock
     }
     remove_file(unoptimized_path).unwrap();
 
-    // copy optimized file => destination path
-    let dest_dir = Path::new(dest);
-    if !dest_dir.exists() {
-        match create_dir(dest_dir){
-            Ok(_) => (),
-            Err(err) => eprintln!("\rError: failed create dest_dir by \"{}\"", err.to_string().bold())
-        };
-    }
-    let dest_path = dest_dir.join(format!("optimized.{}-{}-{}.dat",address, start, end));
-    let mut n = lock.lock().unwrap();
-    *n += 1;
-    if tmp_dir == dest_dir {
-        return Ok(());
-    } else {
-        let mut count = 5;
-        loop {
-            match copy(optimized_path.clone(), dest_path.clone()) {
-                Ok(_) => {
-                    print!("\rmsg: success copy optimized file to dest");
-                    return match remove_file(optimized_path) {
-                        Ok(_) => Ok(()),
-                        Err(err) => Err(String::from(
-                            format!("failed to remove original file by {}", err.to_string().bold())))
-                    };
-                },
-                Err(err) => {
-                    let err = String::from(
-                    format!("failed to move optimized file by {}", err.to_string().bold()));
-                    count -= 1;
-                    if count > 0 {
-                        print!("\r{}, retry {} after 5Secs", err, count);
-                        sleep(Duration::from_secs(5));
-                        continue
-                    } else {
-                        return Err(err);
-                    }
-                }
-            };
-        }
-    };
+    Ok(())
 }
