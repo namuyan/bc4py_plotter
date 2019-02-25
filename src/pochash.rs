@@ -1,5 +1,6 @@
-use sha2::{Sha512, Digest};
+use blake2b_simd::blake2bp::blake2bp;
 use std::mem::transmute;
+use std::cmp::min;
 
 pub const HASH_LOOP_COUNT: usize = 512;
 pub const HASH_LENGTH: usize = 64;
@@ -26,17 +27,20 @@ pub fn generator(address: &str, nonce: u32) ->[u8;HASH_LOOP_COUNT*HASH_LENGTH] {
     //println!("source={:?}", &source[(total_length-SEED_LENGTH)..]);
 
     // seed [hash(HASH_LENGTH)]-...-[hash0]-[address 40bytes]-[nonce 4bytes]
-    // [hashN] = SHA512([hash(N-1)]-...-[hash0]-[address 40bytes]-[nonce 4bytes])
+    // [hashN] = blake2bp([hash(N-1)]-...-[hash0]-[address 40bytes]-[nonce 4bytes])
     let start_index = total_length - SEED_LENGTH;
     let mut final_hash = [0u8; HASH_LENGTH];
-    for index in 0..(HASH_LOOP_COUNT+1) {
-        let pos = start_index - index * HASH_LENGTH;
-        let hash = Sha512::digest(&source[pos..]);
-        if pos == 0 {
-            slice_replace(&mut final_hash, &hash);
-        } else {
-            slice_replace(&mut source[(pos-HASH_LENGTH)..pos], &hash);
-        }
+    for index in 0..(HASH_LOOP_COUNT) {
+        let start = start_index - index * HASH_LENGTH;
+        let end = min(start + 1024, total_length);
+        let hash = blake2bp(&source[start..end]);
+        let hash = hash.as_bytes();
+        slice_replace(&mut source[(start-HASH_LENGTH)..start], &hash);
+    }
+    {  // generate final hash
+        let hash = blake2bp(&source);
+        let hash = hash.as_bytes();
+        slice_replace(&mut final_hash, &hash);
     }
     //println!("final={:?}\nsource={:?}", final_hash, &source[..]);
 
