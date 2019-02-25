@@ -70,7 +70,7 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, lock
             .expect("cannot create unoptimized file"));
         for nonce in start..end {
             let b = generator(address, nonce);
-            wfs.write(&b).unwrap();
+            wfs.write(&b[..]).unwrap();
             if nonce % 800 == 0 {
                 print!("\rmsg: generating poc hash of {}% of {} to {} nonce",
                        (nonce-start)*100/(end-start), start, end);

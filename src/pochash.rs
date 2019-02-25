@@ -15,8 +15,8 @@ fn slice_replace(src: &mut [u8], by: &[u8]){
     }
 }
 
-pub fn generator(address: &str, nonce: u32) ->[u8;HASH_LOOP_COUNT*HASH_LENGTH] {
-    let mut source = [0u8; HASH_LOOP_COUNT * HASH_LENGTH + SEED_LENGTH];
+pub fn generator(address: &str, nonce: u32) ->Box<[u8;HASH_LOOP_COUNT*HASH_LENGTH]> {
+    let mut source = box [0u8; HASH_LOOP_COUNT * HASH_LENGTH + SEED_LENGTH];
     let total_length = SEED_LENGTH + HASH_LOOP_COUNT * HASH_LENGTH;
     debug_assert_eq!(address.as_bytes().len() + 4, SEED_LENGTH);
 
@@ -38,7 +38,7 @@ pub fn generator(address: &str, nonce: u32) ->[u8;HASH_LOOP_COUNT*HASH_LENGTH] {
         slice_replace(&mut source[(start-HASH_LENGTH)..start], &hash);
     }
     {  // generate final hash
-        let hash = blake2bp(&source);
+        let hash = blake2bp(&source[..]);
         let hash = hash.as_bytes();
         slice_replace(&mut final_hash, &hash);
     }
@@ -47,7 +47,7 @@ pub fn generator(address: &str, nonce: u32) ->[u8;HASH_LOOP_COUNT*HASH_LENGTH] {
     // all hash_ints XOR with final_int
     // from: [hash(HASH_LENGTH)]-...-[hash0]-[address 40bytes]-[nonce 4bytes]
     // to  : [hash'0]- ... - [hash'(HASH_LENGTH)]
-    let mut output = [0u8; HASH_LOOP_COUNT * HASH_LENGTH];
+    let mut output = box [0u8; HASH_LOOP_COUNT * HASH_LENGTH];
     for (index, item) in output.iter_mut().enumerate() {
         let inner_pos = index % HASH_LENGTH;  // 0~31
         let outer_pos = index / HASH_LENGTH;
