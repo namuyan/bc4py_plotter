@@ -2,7 +2,7 @@ use blake2b_simd::blake2bp::blake2bp;
 use std::mem::transmute;
 use std::cmp::min;
 
-pub const HASH_LOOP_COUNT: usize = 512;
+pub const HASH_LOOP_COUNT: usize = 8192;
 pub const HASH_LENGTH: usize = 64;
 pub const SEED_LENGTH: usize = 44;
 
