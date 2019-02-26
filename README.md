@@ -3,12 +3,12 @@ bc4py poc plotter
 This is PoC hash plot tool.
 
 Requirements
-====
+----
 * Linux/Windows/etc
 * Rust **nightly** [Install](https://forge.rust-lang.org/other-installation-methods.html#more-rustup) or `curl https://sh.rustup.rs -sSf | sh`
 
 How to use
-====
+----
 ```bash
 git clone https://github.com/namuyan/bc4py_plotter
 cd bc4py_plotter
@@ -18,7 +18,7 @@ cp target/release/bc4py_plotter .
 ```
 
 Rust manual install
-====
+----
 ```text
 Current installation options:
  
@@ -48,13 +48,13 @@ Modify PATH variable? (y/n)
 you need to select **y**
 
 Trouble shooting
-====
+----
 * `failed to run custom build command for 'openssl-sys vX.X.X'` => `sudo apt install libssl-dev`
 
 Licence
-====
+----
 MIT
 
 Author
-====
+----
 [namuyan_mine](http://twitter.com/namuyan_mine)
