@@ -6,6 +6,7 @@ use std::fs::{create_dir, File, remove_file};
 use std::path::Path;
 use std::thread::sleep;
 use std::time::Duration;
+use std::io::stdout;
 
 pub fn ask_user(question: &str, default: &str) ->String {
     print!("Q. {} default=\"{}\" >> ", question.underline(), default.bold());
@@ -70,13 +71,14 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Re
         for nonce in start..end {
             let b = generator(address, nonce);
             wfs.write(&b[..]).unwrap();
-            if nonce % 800 == 0 {
+            if nonce % 1600 == 0 {
                 print!("\rmsg: generating poc hash of {}% of {} to {} nonce",
                        (nonce-start)*100/(end-start), start, end);
+                stdout().flush().unwrap();
             }
         }
         wfs.flush().unwrap();
-        print!("\rmsg: create unoptimized file {} to {} nonce", start, end);
+        println!("\rmsg: create unoptimized file {} to {} nonce", start, end);
     }
 
     // unoptimized file => optimized file
@@ -97,14 +99,13 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Re
         let section_size = HASH_LOOP_COUNT * HASH_LENGTH;
         let scope_count = section_size / 32;
         let relative_size = section_size as i64 - 32;
-        let mut buffer = [0u8; 32];
+        let mut buffer = vec![0u8; ((end-start)*32) as usize].into_boxed_slice();
         for scope in 0..scope_count {
             let start_pos = scope * 32;
             rfs.seek(SeekFrom::Start(start_pos as u64)).unwrap();
-            for nonce in start..end {
-                match  rfs.read(&mut buffer) {
+            for (index, nonce) in (start..end).enumerate() {
+                match  rfs.read(&mut buffer[32*index..32*index+32]) {
                     Ok(32) => {
-                        wfs.write(&buffer).unwrap();
                         rfs.seek(SeekFrom::Current(relative_size)).unwrap();
                     },
                     Ok(size) => panic!(format!(
@@ -113,9 +114,10 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Re
                         "Error {} {}of{}", err.to_string().bold(), nonce, scope))
                 }
             }
-            wfs.flush().unwrap();
+            wfs.write(&buffer).unwrap();
             if scope % 100 == 0{
                 print!("\rmsg: {}/{} convert to optimized {} to {} nonce", scope, scope_count-1, start, end);
+                stdout().flush().unwrap();
             }
         }
     }
