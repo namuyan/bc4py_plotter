@@ -3,7 +3,7 @@ use std::io::{BufReader, BufWriter, Read, Write, Seek, SeekFrom};
 use colored::Colorize;
 use serde_json::Value;
 use std::fs::{create_dir, File, remove_file};
-use std::path::Path;
+use std::path::{Path,PathBuf};
 use std::thread::sleep;
 use std::time::Duration;
 use std::io::stdout;
@@ -54,7 +54,56 @@ pub fn address_request(proto: &str, url: &str, username: &str, password: &str) -
     Ok(address.to_owned())
 }
 
+fn create_unoptimize_file(unoptimized_path: &PathBuf, address: &str, start: u32, end: u32){
+    let mut wfs = BufWriter::new(File::create(unoptimized_path.clone())
+        .expect("cannot create unoptimized file"));
+    for nonce in start..end {
+        let b = generator(address, nonce);
+        wfs.write(&b[..]).unwrap();
+        if nonce % 1600 == 0 {
+            print!("\rmsg: generating poc hash of {}% of {} to {} nonce",
+                   (nonce-start)*100/(end-start), start, end);
+            stdout().flush().unwrap();
+        }
+    }
+    wfs.flush().unwrap();
+    println!("\rmsg: create unoptimized file {} to {} nonce", start, end);
+}
+
+fn convert_optimized_file(unoptimized_path: &PathBuf, optimized_path: &PathBuf, start: u32, end: u32){
+    let mut wfs = BufWriter::new(File::create(optimized_path.clone())
+        .expect("cannot create optimized file"));
+    let mut rfs = BufReader::new(File::open(unoptimized_path.clone())
+        .expect("cannot open unoptimized file"));
+    let section_size = HASH_LOOP_COUNT * HASH_LENGTH;
+    let scope_count = section_size / 32;
+    let relative_size = section_size as i64 - 32;
+    let mut buffer = [0u8; 32];
+    for scope in 0..scope_count {
+        let start_pos = scope * 32;
+        rfs.seek(SeekFrom::Start(start_pos as u64)).unwrap();
+        for  nonce in start..end {
+            match  rfs.read(&mut buffer) {
+                Ok(32) => {
+                    wfs.write(&buffer).unwrap();
+                    rfs.seek(SeekFrom::Current(relative_size)).unwrap();
+                },
+                Ok(size) => panic!(format!(
+                    "Error incorrect size {}!=32bytes {}of{}", size.to_string().bold(), nonce, scope)),
+                Err(err) => panic!(format!(
+                    "Error {} {}of{}", err.to_string().bold(), nonce, scope))
+            }
+        }
+        if scope % 100 == 0{
+            print!("\rmsg: {}/{} convert to optimized {} to {} nonce", scope, scope_count-1, start, end);
+            stdout().flush().unwrap();
+        }
+    }
+}
+
 pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Result<(), String> {
+    let estimate_output_size = (end-start) as u64 * (HASH_LENGTH * HASH_LOOP_COUNT) as u64;
+
     let tmp_dir = Path::new(tmp);
     if !tmp_dir.exists() {
         match create_dir(tmp_dir){
@@ -65,20 +114,19 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Re
 
     // generate => unoptimized file
     let unoptimized_path = tmp_dir.join(format!("unoptimized.{}-{}-{}.dat",address, start, end));
-    {
-        let mut wfs = BufWriter::new(File::create(unoptimized_path.clone())
-            .expect("cannot create unoptimized file"));
-        for nonce in start..end {
-            let b = generator(address, nonce);
-            wfs.write(&b[..]).unwrap();
-            if nonce % 1600 == 0 {
-                print!("\rmsg: generating poc hash of {}% of {} to {} nonce",
-                       (nonce-start)*100/(end-start), start, end);
-                stdout().flush().unwrap();
-            }
+    if unoptimized_path.exists() {
+        let size = unoptimized_path.metadata().unwrap().len();
+        if size == estimate_output_size {
+            print!("\rmsg: already exist unoptimized file and full size, skip");
+            stdout().flush().unwrap();
+        } else {
+            print!("\rmsg: already exist unoptimized file, but not correct size");
+            stdout().flush().unwrap();
+            remove_file(unoptimized_path.clone()).unwrap();
+            create_unoptimize_file(&unoptimized_path, address, start, end);
         }
-        wfs.flush().unwrap();
-        println!("\rmsg: create unoptimized file {} to {} nonce", start, end);
+    } else {
+        create_unoptimize_file(&unoptimized_path, address, start, end);
     }
 
     // unoptimized file => optimized file
@@ -91,37 +139,22 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Re
         };
     }
     let optimized_path = dest_dir.join(format!("optimized.{}-{}-{}.dat",address, start, end));
-    {
-        let mut wfs = BufWriter::new(File::create(optimized_path.clone())
-            .expect("cannot create optimized file"));
-        let mut rfs = BufReader::new(File::open(unoptimized_path.clone())
-            .expect("cannot open unoptimized file"));
-        let section_size = HASH_LOOP_COUNT * HASH_LENGTH;
-        let scope_count = section_size / 32;
-        let relative_size = section_size as i64 - 32;
-        let mut buffer = vec![0u8; ((end-start)*32) as usize].into_boxed_slice();
-        for scope in 0..scope_count {
-            let start_pos = scope * 32;
-            rfs.seek(SeekFrom::Start(start_pos as u64)).unwrap();
-            for (index, nonce) in (start..end).enumerate() {
-                match  rfs.read(&mut buffer[32*index..32*index+32]) {
-                    Ok(32) => {
-                        rfs.seek(SeekFrom::Current(relative_size)).unwrap();
-                    },
-                    Ok(size) => panic!(format!(
-                        "Error incorrect size {}!=32bytes {}of{}", size.to_string().bold(), nonce, scope)),
-                    Err(err) => panic!(format!(
-                        "Error {} {}of{}", err.to_string().bold(), nonce, scope))
-                }
-            }
-            wfs.write(&buffer).unwrap();
-            if scope % 100 == 0{
-                print!("\rmsg: {}/{} convert to optimized {} to {} nonce", scope, scope_count-1, start, end);
-                stdout().flush().unwrap();
-            }
+    if optimized_path.exists() {
+        let size = optimized_path.metadata().unwrap().len();
+        if size == estimate_output_size {
+            print!("\rmsg: already exist optimized file and full size, skip");
+            stdout().flush().unwrap();
+        } else {
+            print!("\rmsg: already exist optimized file, but not correct size");
+            stdout().flush().unwrap();
+            remove_file(optimized_path.clone()).unwrap();
+            convert_optimized_file(&unoptimized_path, &optimized_path, start, end);
+            remove_file(unoptimized_path).unwrap();
         }
+    } else {
+        convert_optimized_file(&unoptimized_path, &optimized_path, start, end);
+        remove_file(unoptimized_path).unwrap();
     }
-    remove_file(unoptimized_path).unwrap();
 
     Ok(())
 }
