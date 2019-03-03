@@ -2,10 +2,10 @@ use crate::pochash::{HASH_LOOP_COUNT,HASH_LENGTH,generator};
 use std::io::{BufReader, BufWriter, Read, Write, Seek, SeekFrom};
 use colored::Colorize;
 use serde_json::Value;
-use std::fs::{create_dir, File, remove_file};
+use std::fs::{create_dir, File, remove_file, rename};
 use std::path::{Path,PathBuf};
 use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Instant, Duration};
 use std::io::stdout;
 
 pub fn ask_user(question: &str, default: &str) ->String {
@@ -70,34 +70,53 @@ fn create_unoptimize_file(unoptimized_path: &PathBuf, address: &str, start: u32,
     println!("\rmsg: create unoptimized file {} to {} nonce", start, end);
 }
 
+// 1 section = 12.8MB
+const SPLIT_NUM: usize = 128;  // use 820MB memory
+
 fn convert_optimized_file(unoptimized_path: &PathBuf, optimized_path: &PathBuf, start: u32, end: u32){
     let mut wfs = BufWriter::new(File::create(optimized_path.clone())
         .expect("cannot create optimized file"));
     let mut rfs = BufReader::new(File::open(unoptimized_path.clone())
         .expect("cannot open unoptimized file"));
+    let block_size = (end - start) * 32 / 1000;
+    let memory_size = (block_size * SPLIT_NUM as u32) * 1000;
+    println!("\rmsg: block size is {}kBytes, use {}MBytes memory", block_size, memory_size);
+
+    let now = Instant::now();
     let section_size = HASH_LOOP_COUNT * HASH_LENGTH;
-    let scope_count = section_size / 32;
-    let relative_size = section_size as i64 - 32;
-    let mut buffer = [0u8; 32];
-    for scope in 0..scope_count {
-        let start_pos = scope * 32;
-        rfs.seek(SeekFrom::Start(start_pos as u64)).unwrap();
+    let block_count = section_size / SPLIT_NUM / 32;
+    let relative_size = (section_size - SPLIT_NUM * 32) as i64;
+    let mut buffer = [0u8;32];
+    let mut big_buffer = vec![];
+    for _ in 0..SPLIT_NUM {
+        big_buffer.push(vec![]);
+    }
+    for block_num in 0..block_count {
+        let start_pos = (block_num * SPLIT_NUM * 32) as u64;
+        rfs.seek(SeekFrom::Start(start_pos)).unwrap();
         for  nonce in start..end {
-            match  rfs.read(&mut buffer) {
-                Ok(32) => {
-                    wfs.write(&buffer).unwrap();
-                    rfs.seek(SeekFrom::Current(relative_size)).unwrap();
-                },
-                Ok(size) => panic!(format!(
-                    "Error incorrect size {}!=32bytes {}of{}", size.to_string().bold(), nonce, scope)),
-                Err(err) => panic!(format!(
-                    "Error {} {}of{}", err.to_string().bold(), nonce, scope))
+            for tmp in big_buffer.iter_mut() {
+                match  rfs.read(&mut buffer) {
+                    Ok(32) => {
+                        tmp.extend_from_slice(&buffer);
+                    },
+                    Ok(size) => panic!(format!(
+                        "Error incorrect size {}!=32bytes {}of{}", size.to_string().bold(), nonce, block_num)),
+                    Err(err) => panic!(format!(
+                        "Error {} {}of{}", err.to_string().bold(), nonce, block_num))
+                }
             }
+            rfs.seek(SeekFrom::Current(relative_size)).unwrap();
         }
-        if scope % 100 == 0{
-            print!("\rmsg: {}/{} convert to optimized {} to {} nonce", scope, scope_count-1, start, end);
-            stdout().flush().unwrap();
+
+        for tmp in big_buffer.iter_mut() {
+            wfs.write(tmp.as_slice()).unwrap();
+            tmp.clear();
         }
+
+        print!("\rmsg: {}/{} convert to optimized {} to {} nonce, {}m passed",
+               block_num+1, block_count, start, end, now.elapsed().as_secs()/60);
+        stdout().flush().unwrap();
     }
 }
 
@@ -113,7 +132,7 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Re
     }
 
     // generate => unoptimized file
-    let unoptimized_path = tmp_dir.join(format!("unoptimized.{}-{}-{}.dat",address, start, end));
+    let unoptimized_path = tmp_dir.join(format!("unoptimized.{}-{}-{}.tmp",address, start, end));
     if unoptimized_path.exists() {
         let size = unoptimized_path.metadata().unwrap().len();
         if size == estimate_output_size {
@@ -138,7 +157,7 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Re
             Err(err) => eprintln!("\rError: failed create dest_dir by \"{}\"", err.to_string().bold())
         };
     }
-    let optimized_path = dest_dir.join(format!("optimized.{}-{}-{}.dat",address, start, end));
+    let optimized_path = dest_dir.join(format!("optimized.{}-{}-{}.tmp",address, start, end));
     if optimized_path.exists() {
         let size = optimized_path.metadata().unwrap().len();
         if size == estimate_output_size {
@@ -155,6 +174,10 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Re
         convert_optimized_file(&unoptimized_path, &optimized_path, start, end);
         remove_file(unoptimized_path).unwrap();
     }
+
+    // rename to output file
+    let output_path = dest_dir.join(format!("optimized.{}-{}-{}.dat",address, start, end));
+    rename(optimized_path, output_path).unwrap();
 
     Ok(())
 }
