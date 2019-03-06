@@ -8,6 +8,8 @@ use std::thread::sleep;
 use std::time::{Instant, Duration};
 use std::io::stdout;
 
+const MAX_MEMORY_SIZE: usize = 1500; // MB
+
 pub fn ask_user(question: &str, default: &str) ->String {
     print!("Q. {} default=\"{}\" >> ", question.underline(), default.bold());
     std::io::stdout().flush().unwrap();
@@ -70,29 +72,33 @@ fn create_unoptimize_file(unoptimized_path: &PathBuf, address: &str, start: u32,
     println!("\rmsg: create unoptimized file {} to {} nonce", start, end);
 }
 
-// 1 section = 12.8MB
-const SPLIT_NUM: usize = 128;  // use 820MB memory
-
 fn convert_optimized_file(unoptimized_path: &PathBuf, optimized_path: &PathBuf, start: u32, end: u32){
     let mut wfs = BufWriter::new(File::create(optimized_path.clone())
         .expect("cannot create optimized file"));
     let mut rfs = BufReader::new(File::open(unoptimized_path.clone())
         .expect("cannot open unoptimized file"));
-    let block_size = (end - start) * 32 / 1000;
-    let memory_size = (block_size * SPLIT_NUM as u32) * 1000;
-    println!("\rmsg: block size is {}kBytes, use {}MBytes memory", block_size, memory_size);
+    let mut split_number= HASH_LOOP_COUNT * HASH_LENGTH / 32;
+    loop {
+        let memory_size = (end - start) as usize * 32 * split_number / 1_000_000;  // M bytes
+        if memory_size < MAX_MEMORY_SIZE {
+            println!("\rmsg: split to {}, use {}MB memory", split_number, memory_size);
+            break
+        }else {
+            split_number /= 2;
+        }
+    }
 
     let now = Instant::now();
     let section_size = HASH_LOOP_COUNT * HASH_LENGTH;
-    let block_count = section_size / SPLIT_NUM / 32;
-    let relative_size = (section_size - SPLIT_NUM * 32) as i64;
+    let block_count = section_size / split_number / 32;
+    let relative_size = (section_size - split_number * 32) as i64;
     let mut buffer = [0u8;32];
     let mut big_buffer = vec![];
-    for _ in 0..SPLIT_NUM {
+    for _ in 0..split_number {
         big_buffer.push(vec![]);
     }
     for block_num in 0..block_count {
-        let start_pos = (block_num * SPLIT_NUM * 32) as u64;
+        let start_pos = (block_num * split_number * 32) as u64;
         rfs.seek(SeekFrom::Start(start_pos)).unwrap();
         for  nonce in start..end {
             for tmp in big_buffer.iter_mut() {
@@ -123,16 +129,31 @@ fn convert_optimized_file(unoptimized_path: &PathBuf, optimized_path: &PathBuf, 
 pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Result<(), String> {
     let estimate_output_size = (end-start) as u64 * (HASH_LENGTH * HASH_LOOP_COUNT) as u64;
 
+    // folder check
     let tmp_dir = Path::new(tmp);
+    let dest_dir = Path::new(dest);
     if !tmp_dir.exists() {
         match create_dir(tmp_dir){
             Ok(_) => (),
             Err(err) => eprintln!("\rError: failed create tmp_dir by \"{}\"", err.to_string().bold())
         };
     }
+    if !dest_dir.exists() {
+        match create_dir(dest_dir){
+            Ok(_) => (),
+            Err(err) => eprintln!("\rError: failed create dest_dir by \"{}\"", err.to_string().bold())
+        };
+    }
+    let unoptimized_path = tmp_dir.join(format!("unoptimized.{}-{}-{}.tmp",address, start, end));
+    let optimized_path = dest_dir.join(format!("optimized.{}-{}-{}.tmp",address, start, end));
+    let output_path = dest_dir.join(format!("optimized.{}-{}-{}.dat",address, start, end));
+    if output_path.exists() {
+        print!("\rmsg: already exist output file, skip");
+        stdout().flush().unwrap();
+        return Ok(());
+    }
 
     // generate => unoptimized file
-    let unoptimized_path = tmp_dir.join(format!("unoptimized.{}-{}-{}.tmp",address, start, end));
     if unoptimized_path.exists() {
         let size = unoptimized_path.metadata().unwrap().len();
         if size == estimate_output_size {
@@ -148,16 +169,9 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Re
         create_unoptimize_file(&unoptimized_path, address, start, end);
     }
 
-    // unoptimized file => optimized file
     sleep(Duration::from_secs(5));
-    let dest_dir = Path::new(dest);
-    if !dest_dir.exists() {
-        match create_dir(dest_dir){
-            Ok(_) => (),
-            Err(err) => eprintln!("\rError: failed create dest_dir by \"{}\"", err.to_string().bold())
-        };
-    }
-    let optimized_path = dest_dir.join(format!("optimized.{}-{}-{}.tmp",address, start, end));
+
+    // unoptimized file => optimized file
     if optimized_path.exists() {
         let size = optimized_path.metadata().unwrap().len();
         if size == estimate_output_size {
@@ -176,7 +190,6 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Re
     }
 
     // rename to output file
-    let output_path = dest_dir.join(format!("optimized.{}-{}-{}.dat",address, start, end));
     rename(optimized_path, output_path).unwrap();
 
     Ok(())

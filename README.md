@@ -5,7 +5,8 @@ This is PoC hash plot tool.
 Requirements
 ----
 * Linux/Windows/etc
-* Rust **nightly** [Install](https://forge.rust-lang.org/other-installation-methods.html#more-rustup) or `curl https://sh.rustup.rs -sSf | sh`
+* Rust **nightly**
+* main memory 2GB
 
 How to use
 ----
@@ -19,6 +20,11 @@ cp target/release/bc4py_plotter .
 
 Rust manual install
 ----
+[Install document](https://forge.rust-lang.org/other-installation-methods.html#more-rustup)
+
+or
+
+`curl https://sh.rustup.rs -sSf | sh`
 ```text
 Current installation options:
  
@@ -50,6 +56,7 @@ you need to select **y**
 Trouble shooting
 ----
 * `failed to run custom build command for 'openssl-sys vX.X.X'` => `sudo apt install libssl-dev`
+* consume too memory => please edit **MAX_MEMORY_SIZE** of cli_tool.rs
 
 Licence
 ----
