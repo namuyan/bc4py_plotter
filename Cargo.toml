@@ -1,6 +1,6 @@
 [package]
 name = "bc4py_plotter"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["namuyan <thhjuuATyahoo.co.jp>"]
 edition = "2018"
 
