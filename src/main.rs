@@ -4,6 +4,7 @@ extern crate bc4py_plotter;
 extern crate test;
 
 use bc4py_plotter::cli_tool::*;
+use bc4py_plotter::join_tool::plot_joiner;
 use bc4py_plotter::pochash::*;
 use std::sync::mpsc::channel;
 use workerpool::Pool;
@@ -14,6 +15,7 @@ use colored::Colorize;
 
 fn main() {
     println!("bc4py proof of capacity plotter.");
+    let mode = ask_user("select mode \"plot\" or \"join\"?", "plot");
     let dest = ask_user("destination path?", "./plots");
     let tmp = ask_user("temporary folder?", "./plots");
     let mut address = ask_user("address or node?", "<AddressFormat>");
@@ -28,6 +30,22 @@ fn main() {
         };
     }
 
+    // mode join
+    if &mode == "join" {
+        let length: usize = ask_user("nonce length?", "16384").parse().unwrap();
+        let start: usize = ask_user("start nonce?", "0").parse().unwrap();
+        match plot_joiner(&address, length, start, &tmp, &dest) {
+            Ok(_) => (),
+            Err(err) => println!("error: {}", err)
+        }
+        println!("\nfinish all work");
+        return;
+    } else if &mode != "plot" {
+        println!("error: unknown type {}", mode);
+        return;
+    }
+
+    // mode plot
     let mut section_size = 16384;
     let mut section_num = 4;
     loop {
