@@ -70,6 +70,7 @@ pub fn plot_joiner(address: &str, length: usize, start: usize, tmp: &str, dest: 
     let mut wfs = BufWriter::new(File::create(work_file.clone()).unwrap());
     let scope_number = HASH_LOOP_COUNT * HASH_LENGTH / 32;
     let mut buffer = vec![0u8;length*32].into_boxed_slice();
+    let mut big_buffer = vec![];
     for scope in 0..scope_number {
         let start_pos = (length * 32 * scope) as u64;
         for fs in join_order.iter(){
@@ -77,8 +78,10 @@ pub fn plot_joiner(address: &str, length: usize, start: usize, tmp: &str, dest: 
             rfs.seek(SeekFrom::Start(start_pos)).unwrap();
             let size = rfs.read(&mut buffer).unwrap();
             assert_eq!(size, length*32);
-            wfs.write(&buffer).unwrap();
+            big_buffer.extend_from_slice(&buffer);
         }
+        wfs.write(&big_buffer).unwrap();
+        big_buffer.clear();
         print!("\r{}/{} finish copy scope, {}Min passed",
                  scope + 1, scope_number, now.elapsed().as_secs()/60);
         stdout().flush().unwrap();
