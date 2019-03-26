@@ -11,9 +11,13 @@ use workerpool::Pool;
 use workerpool::thunk::{Thunk, ThunkWorker};
 use std::time::{Instant, Duration};
 use colored::Colorize;
+#[cfg(windows)]
+use colored::control::set_virtual_terminal;
 
 
 fn main() {
+    #[cfg(windows)]
+    set_virtual_terminal(true).expect("cannot use vertural terminal?");
     println!("bc4py proof of capacity plotter.");
     let mode = ask_user("select mode \"plot\" or \"join\"?", "plot");
     let dest = ask_user("destination path?", "./plots");
