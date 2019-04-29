@@ -23,7 +23,7 @@ fn main() {
     let dest = ask_user("destination path?", "./plots");
     let tmp = ask_user("temporary folder?", "./plots");
     let mut address = ask_user("address or node?", "<AddressFormat>");
-    if address.len() != 40 {
+    if address == "<AddressFormat>" {
         let proto = ask_user("node proto?", "http");
         let url = ask_user("node endpoint?", "127.0.0.1:3000");
         let username = ask_user("Auth username?", "user");
@@ -110,6 +110,11 @@ mod tests {
 
     #[bench]
     fn create_hash(b: &mut Bencher) {
-        b.iter(|| generator("NDTTLPOUBQQLC5SZ4BPKK2GK6U3RP6TUKGBCCLDV", 123456));
+        b.iter(|| {
+            let ver_identifier = b"DUMMY_IDENTIFIER_DATA";
+            let mut output =  Box::new([0u8;HASH_LOOP_COUNT*HASH_LENGTH]);
+            generator(ver_identifier, 123456, &mut output);
+            output
+        });
     }
 }

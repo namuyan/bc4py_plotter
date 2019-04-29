@@ -10,7 +10,7 @@ use regex::Regex;
 pub fn plot_joiner(address: &str, length: usize, start: usize, tmp: &str, dest: &str) -> Result<(), String> {
     let now = Instant::now();
     let dir = read_dir(tmp).map_err(|err| err.to_string())?;
-    let re = Regex::new("^optimized\\.([A-Z0-9]{40})\\-([0-9]+)\\-([0-9]+)\\.dat$").unwrap();
+    let re = Regex::new("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]+)\\.dat$").unwrap();
 
     let mut files = vec![];
     for path in dir {

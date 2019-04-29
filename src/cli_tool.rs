@@ -1,4 +1,5 @@
 use crate::pochash::{HASH_LOOP_COUNT,HASH_LENGTH,generator};
+use crate::utils::*;
 use std::io::{BufReader, BufWriter, Read, Write, Seek, SeekFrom};
 use colored::Colorize;
 use serde_json::Value;
@@ -56,12 +57,13 @@ pub fn address_request(proto: &str, url: &str, username: &str, password: &str) -
     Ok(address.to_owned())
 }
 
-fn create_unoptimize_file(unoptimized_path: &PathBuf, address: &str, start: u32, end: u32){
+fn create_unoptimize_file(unoptimized_path: &PathBuf, ver_identifier: &[u8], start: u32, end: u32){
     let mut wfs = BufWriter::new(File::create(unoptimized_path.clone())
         .expect("cannot create unoptimized file"));
+    let mut output =  Box::new([0u8;HASH_LOOP_COUNT*HASH_LENGTH]);
     for nonce in start..end {
-        let b = generator(address, nonce);
-        wfs.write(&b[..]).unwrap();
+        generator(ver_identifier, nonce, &mut output);
+        wfs.write(&output.to_vec()).unwrap();
         if nonce % 1600 == 0 {
             print!("\rmsg: generating poc hash of {}% of {} to {} nonce",
                    (nonce-start)*100/(end-start), start, end);
@@ -153,6 +155,9 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Re
         return Ok(());
     }
 
+    // get ver_identifier
+    let ver_identifier = addr2ver_identifier(address)?;
+
     // generate => unoptimized file
     if unoptimized_path.exists() {
         let size = unoptimized_path.metadata().unwrap().len();
@@ -163,10 +168,10 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Re
             print!("\rmsg: already exist unoptimized file, but not correct size");
             stdout().flush().unwrap();
             remove_file(unoptimized_path.clone()).unwrap();
-            create_unoptimize_file(&unoptimized_path, address, start, end);
+            create_unoptimize_file(&unoptimized_path, &ver_identifier, start, end);
         }
     } else {
-        create_unoptimize_file(&unoptimized_path, address, start, end);
+        create_unoptimize_file(&unoptimized_path, &ver_identifier, start, end);
     }
 
     sleep(Duration::from_secs(5));
