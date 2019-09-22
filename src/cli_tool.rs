@@ -30,11 +30,10 @@ pub fn ask_user(question: &str, default: &str) ->String {
     }
 }
 
-pub fn address_request(proto: &str, url: &str, username: &str, password: &str) -> Result<String, String> {
+pub fn address_request(url: &str, username: &str, password: &str) -> Result<String, String> {
     println!("Request node new address...");
     let client = reqwest::Client::new();
-    let url = format!("{}://{}/private/newaddress?account=@Mining", proto, url);
-    let mut response = match client.get(&url)
+    let mut response = match client.get(url)
         .basic_auth(username.to_owned(), Some(password.to_owned()))
         .send(){
             Ok(res) => res,

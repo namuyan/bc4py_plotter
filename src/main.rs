@@ -25,10 +25,12 @@ fn main() {
     let mut address = ask_user("address or node?", "<AddressFormat>");
     if address == "<AddressFormat>" {
         let proto = ask_user("node proto?", "http");
-        let url = ask_user("node endpoint?", "127.0.0.1:3000");
+        let endpoint = ask_user("node endpoint?", "127.0.0.1:3000");
+        let account = ask_user("generating account?", "mining");
         let username = ask_user("Auth username?", "user");
         let password = ask_user("Auth password?", "password");
-        address = match address_request(&proto, &url, &username, &password) {
+        let url = format!("{}://{}/private/newaddress?account={}", proto, endpoint, account);
+        address = match address_request(&url, &username, &password) {
             Ok(address) => address,
             Err(err) => panic!("Failed get by {}", err.to_string().bold())
         };
