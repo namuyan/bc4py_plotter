@@ -31,3 +31,15 @@ pub fn addr2params(addr: &str) -> Result<(String, u8, Vec<u8>), bech32::Error> {
     let identifier = convert_bits(&bech.data()[1..], 5, 8, false)?;
     Ok((bech.hrp().to_string(), ver, identifier))
 }
+
+
+pub fn get_total_memory_size() -> usize {
+    // return total memory size (MB)
+     match sys_info::mem_info() {
+        Ok(mem) => (mem.total / 1000) as usize,
+        Err(_) => {
+            println!("cannot find memory info");
+            1700
+        }
+    }
+}

@@ -6,6 +6,7 @@ extern crate test;
 use bc4py_plotter::cli_tool::*;
 use bc4py_plotter::join_tool::plot_joiner;
 use bc4py_plotter::pochash::*;
+use bc4py_plotter::utils::get_total_memory_size;
 use std::sync::mpsc::channel;
 use workerpool::Pool;
 use workerpool::thunk::{Thunk, ThunkWorker};
@@ -69,6 +70,8 @@ fn main() {
     };
     let worker_num: usize = ask_user("how many worker?", "1")
         .parse().expect("worker size is number");
+    let max_memory_size = get_total_memory_size() / worker_num / 2;
+    println!("{} workers and {}MB for each use", worker_num, max_memory_size);
     println!("finish all parameter questions. wait...");
 
     // throw jobs to worker pool
@@ -81,7 +84,7 @@ fn main() {
         let address = address.clone();
         let (dest, tmp) = (dest.clone(), tmp.clone());
         pool.execute_to(tx.clone(), Thunk::of( move || {
-            let result = plotting(&address, start_pos, end_pos, &tmp, &dest);
+            let result = plotting(&address, start_pos, end_pos, &tmp, &dest, max_memory_size);
             (start_pos, end_pos, result)
         }));
     };

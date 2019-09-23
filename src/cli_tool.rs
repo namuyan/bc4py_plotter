@@ -9,8 +9,6 @@ use std::thread::sleep;
 use std::time::{Instant, Duration};
 use std::io::stdout;
 
-const MAX_MEMORY_SIZE: usize = 1500; // MB
-
 pub fn ask_user(question: &str, default: &str) ->String {
     print!("Q. {} default=\"{}\" >> ", question.underline(), default.bold());
     std::io::stdout().flush().unwrap();
@@ -73,7 +71,7 @@ fn create_unoptimize_file(unoptimized_path: &PathBuf, ver_identifier: &[u8], sta
     println!("\rmsg: create unoptimized file {} to {} nonce", start, end);
 }
 
-fn convert_optimized_file(unoptimized_path: &PathBuf, optimized_path: &PathBuf, start: u32, end: u32){
+fn convert_optimized_file(unoptimized_path: &PathBuf, optimized_path: &PathBuf, start: u32, end: u32, max_memory_size: usize){
     let mut wfs = BufWriter::new(File::create(optimized_path.clone())
         .expect("cannot create optimized file"));
     let mut rfs = BufReader::new(File::open(unoptimized_path.clone())
@@ -81,7 +79,7 @@ fn convert_optimized_file(unoptimized_path: &PathBuf, optimized_path: &PathBuf, 
     let mut split_number= HASH_LOOP_COUNT * HASH_LENGTH / 32;
     loop {
         let memory_size = (end - start) as usize * 32 * split_number / 1_000_000;  // M bytes
-        if memory_size < MAX_MEMORY_SIZE {
+        if memory_size < max_memory_size {
             println!("\rmsg: split to {}, use {}MB memory", split_number, memory_size);
             break
         }else {
@@ -127,7 +125,7 @@ fn convert_optimized_file(unoptimized_path: &PathBuf, optimized_path: &PathBuf, 
     }
 }
 
-pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Result<(), String> {
+pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, max_memory_size: usize) ->Result<(), String> {
     let estimate_output_size = (end-start) as u64 * (HASH_LENGTH * HASH_LOOP_COUNT) as u64;
 
     // folder check
@@ -185,11 +183,11 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str) ->Re
             print!("\rmsg: already exist optimized file, but not correct size");
             stdout().flush().unwrap();
             remove_file(optimized_path.clone()).unwrap();
-            convert_optimized_file(&unoptimized_path, &optimized_path, start, end);
+            convert_optimized_file(&unoptimized_path, &optimized_path, start, end, max_memory_size);
             remove_file(unoptimized_path).unwrap();
         }
     } else {
-        convert_optimized_file(&unoptimized_path, &optimized_path, start, end);
+        convert_optimized_file(&unoptimized_path, &optimized_path, start, end, max_memory_size);
         remove_file(unoptimized_path).unwrap();
     }
 
