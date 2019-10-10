@@ -12,8 +12,4 @@ workerpool = "1.2.0"
 regex = "1"
 bech32 = "0.6"
 sys-info = "0.5.8"
-
-[dependencies.colored]
-version = "1.7.0"
-git = "https://github.com/kurtlawrence/colored"
-branch = "win10-color"
+colored = "1.8"

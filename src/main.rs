@@ -22,8 +22,7 @@ fn main() {
     println!("bc4py proof of capacity plotter.");
     let mode = ask_user("select mode \"plot\" or \"join\"?", "plot");
     let dest = ask_user("destination path?", "./plots");
-    let tmp = ask_user("temporary folder?", "./plots");
-    let mut address = ask_user("address or node?", "<AddressFormat>");
+    let mut address = ask_user("input address or do nothing if use node", "<AddressFormat>");
     if address == "<AddressFormat>" {
         let proto = ask_user("node proto?", "http");
         let endpoint = ask_user("node endpoint?", "127.0.0.1:3000");
@@ -39,20 +38,25 @@ fn main() {
 
     // mode join
     if &mode == "join" {
+        let src = ask_user("source path?", "./plots");
         let length: usize = ask_user("nonce length?", "16384").parse().unwrap();
         let start: usize = ask_user("start nonce?", "0").parse().unwrap();
-        match plot_joiner(&address, length, start, &tmp, &dest) {
+        match plot_joiner(&address, length, start, &src, &dest) {
             Ok(_) => (),
             Err(err) => println!("error: {}", err)
         }
         println!("\nfinish all work");
         return;
-    } else if &mode != "plot" {
+    }
+
+    // only pass plot mode
+    if &mode != "plot" {
         println!("error: unknown type {}", mode);
         return;
     }
 
     // mode plot
+    let tmp = ask_user("temporary folder?", "./plots");
     let mut section_size = 16384;
     let mut section_num = 4;
     loop {

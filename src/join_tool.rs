@@ -7,9 +7,9 @@ use std::time::Instant;
 use regex::Regex;
 
 
-pub fn plot_joiner(address: &str, length: usize, start: usize, tmp: &str, dest: &str) -> Result<(), String> {
+pub fn plot_joiner(address: &str, length: usize, start: usize, src: &str, dest: &str) -> Result<(), String> {
     let now = Instant::now();
-    let dir = read_dir(tmp).map_err(|err| err.to_string())?;
+    let dir = read_dir(src).map_err(|err| err.to_string())?;
     let re = Regex::new("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]+)\\.dat$").unwrap();
 
     let mut files = vec![];
@@ -82,8 +82,11 @@ pub fn plot_joiner(address: &str, length: usize, start: usize, tmp: &str, dest: 
         }
         wfs.write(&big_buffer).unwrap();
         big_buffer.clear();
-        print!("\r{}/{} finish copy scope, {}Min passed",
-                 scope + 1, scope_number, now.elapsed().as_secs()/60);
+
+        let passed_sec = now.elapsed().as_secs() as usize;
+        let remain_sec = passed_sec * scope_number / (scope + 1);
+        print!("\r{}/{} finish copy scope, {}m passed {}m remains",
+                 scope + 1, scope_number, passed_sec/60, remain_sec/60);
         stdout().flush().unwrap();
     }
 
