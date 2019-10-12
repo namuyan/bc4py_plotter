@@ -1,5 +1,9 @@
 use bech32::{Bech32,convert_bits};
 use std::str::FromStr;
+use std::io::{stdout, Write};
+
+
+pub const STDOUT_MSG_SIZE: usize = 64;
 
 
 #[inline]
@@ -38,8 +42,24 @@ pub fn get_total_memory_size() -> usize {
      match sys_info::mem_info() {
         Ok(mem) => (mem.total / 1000) as usize,
         Err(_) => {
-            println!("cannot find memory info");
+            print_cr("cannot find memory info".to_owned(), true);
             1700
         }
     }
+}
+
+
+pub fn print_cr(msg: String, next: bool) {
+    let len =
+        if msg.len() < STDOUT_MSG_SIZE {
+            STDOUT_MSG_SIZE - msg.len()
+        } else {
+            0
+        };
+    let padding = String::from(" ").repeat(len);
+    print!("\r{}{}", msg, padding);
+    if next {
+        print!("\n");
+    }
+    stdout().flush().unwrap();
 }

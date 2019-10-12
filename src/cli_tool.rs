@@ -7,7 +7,7 @@ use std::fs::{create_dir, File, remove_file, rename};
 use std::path::{Path,PathBuf};
 use std::thread::sleep;
 use std::time::{Instant, Duration};
-use std::io::stdout;
+
 
 pub fn ask_user(question: &str, default: &str) ->String {
     print!("Q. {} default=\"{}\" >> ", question.underline(), default.bold());
@@ -23,13 +23,14 @@ pub fn ask_user(question: &str, default: &str) ->String {
                     return s;
                 }
             },
-            Err(err) => println!("{}: \"{}\" retry.", "Error".red() , err.to_string().bold())
+            Err(err) => print_cr(format!(
+                "{}: \"{}\" retry.", "Error".red() , err.to_string().bold()), true)
         }
     }
 }
 
 pub fn address_request(url: &str, username: &str, password: &str) -> Result<String, String> {
-    println!("Request node new address...");
+    print_cr("Request node new address...".to_owned(), true);
     let client = reqwest::Client::new();
     let mut response = match client.get(url)
         .basic_auth(username.to_owned(), Some(password.to_owned()))
@@ -50,7 +51,7 @@ pub fn address_request(url: &str, username: &str, password: &str) -> Result<Stri
         Some(address) => address.as_str().unwrap(),
         None => return Err(String::from("Not found address key"))
     };
-    println!("Success get address \"{}\"", address.bold());
+    print_cr(format!("Success get address \"{}\"", address.bold()), true);
     Ok(address.to_owned())
 }
 
@@ -62,13 +63,12 @@ fn create_unoptimize_file(unoptimized_path: &PathBuf, ver_identifier: &[u8], sta
         generator(ver_identifier, nonce, &mut output);
         wfs.write(&output.to_vec()).unwrap();
         if nonce % 1600 == 0 {
-            print!("\rmsg: generating poc hash of {}% of {} to {} nonce",
-                   (nonce-start)*100/(end-start), start, end);
-            stdout().flush().unwrap();
+            print_cr(format!("msg: generating poc hash of {}% of {} to {} nonce",
+                             (nonce-start)*100/(end-start), start, end), false);
         }
     }
     wfs.flush().unwrap();
-    println!("\rmsg: create unoptimized file {} to {} nonce", start, end);
+    print_cr(format!("msg: create unoptimized file {} to {} nonce", start, end), true);
 }
 
 fn convert_optimized_file(unoptimized_path: &PathBuf, optimized_path: &PathBuf, start: u32, end: u32, max_memory_size: usize){
@@ -80,7 +80,7 @@ fn convert_optimized_file(unoptimized_path: &PathBuf, optimized_path: &PathBuf, 
     loop {
         let memory_size = (end - start) as usize * 32 * split_number / 1_000_000;  // M bytes
         if memory_size < max_memory_size {
-            println!("\rmsg: split to {}, use {}MB memory", split_number, memory_size);
+            print_cr(format!("msg: split to {}, use {}MB memory", split_number, memory_size), true);
             break
         }else {
             split_number /= 2;
@@ -119,9 +119,8 @@ fn convert_optimized_file(unoptimized_path: &PathBuf, optimized_path: &PathBuf, 
             tmp.clear();
         }
 
-        print!("\rmsg: {}/{} convert to optimized {} to {} nonce, {}m passed",
-               block_num+1, block_count, start, end, now.elapsed().as_secs()/60);
-        stdout().flush().unwrap();
+        print_cr(format!("msg: {}/{} convert to optimized {} to {} nonce, {}m passed",
+            block_num+1, block_count, start, end, now.elapsed().as_secs()/60), false);
     }
 }
 
@@ -134,21 +133,20 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, max_
     if !tmp_dir.exists() {
         match create_dir(tmp_dir){
             Ok(_) => (),
-            Err(err) => eprintln!("\rError: failed create tmp_dir by \"{}\"", err.to_string().bold())
+            Err(err) => print_cr(format!("Error: failed create tmp_dir by \"{}\"", err.to_string().bold()), true)
         };
     }
     if !dest_dir.exists() {
         match create_dir(dest_dir){
             Ok(_) => (),
-            Err(err) => eprintln!("\rError: failed create dest_dir by \"{}\"", err.to_string().bold())
+            Err(err) => print_cr(format!("Error: failed create dest_dir by \"{}\"", err.to_string().bold()), true)
         };
     }
     let unoptimized_path = tmp_dir.join(format!("unoptimized.{}-{}-{}.tmp",address, start, end));
     let optimized_path = dest_dir.join(format!("optimized.{}-{}-{}.tmp",address, start, end));
     let output_path = dest_dir.join(format!("optimized.{}-{}-{}.dat",address, start, end));
     if output_path.exists() {
-        print!("\rmsg: already exist output file, skip");
-        stdout().flush().unwrap();
+        print_cr("msg: already exist output file, skip".to_owned(), true);
         return Ok(());
     }
 
@@ -159,11 +157,9 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, max_
     if unoptimized_path.exists() {
         let size = unoptimized_path.metadata().unwrap().len();
         if size == estimate_output_size {
-            print!("\rmsg: already exist unoptimized file and full size, skip");
-            stdout().flush().unwrap();
+            print_cr("msg: already exist unoptimized file and full size, skip".to_owned(), true);
         } else {
-            print!("\rmsg: already exist unoptimized file, but not correct size");
-            stdout().flush().unwrap();
+            print_cr("msg: already exist unoptimized file, but not correct size".to_owned(), true);
             remove_file(unoptimized_path.clone()).unwrap();
             create_unoptimize_file(&unoptimized_path, &ver_identifier, start, end);
         }
@@ -177,11 +173,9 @@ pub fn plotting(address: &str, start: u32, end: u32, tmp: &str, dest: &str, max_
     if optimized_path.exists() {
         let size = optimized_path.metadata().unwrap().len();
         if size == estimate_output_size {
-            print!("\rmsg: already exist optimized file and full size, skip");
-            stdout().flush().unwrap();
+            print_cr("msg: already exist optimized file and full size, skip".to_owned(), true);
         } else {
-            print!("\rmsg: already exist optimized file, but not correct size");
-            stdout().flush().unwrap();
+            print_cr("msg: already exist optimized file, but not correct size".to_owned(), true);
             remove_file(optimized_path.clone()).unwrap();
             convert_optimized_file(&unoptimized_path, &optimized_path, start, end, max_memory_size);
             remove_file(unoptimized_path).unwrap();

@@ -6,7 +6,7 @@ extern crate test;
 use bc4py_plotter::cli_tool::*;
 use bc4py_plotter::join_tool::plot_joiner;
 use bc4py_plotter::pochash::*;
-use bc4py_plotter::utils::get_total_memory_size;
+use bc4py_plotter::utils::{get_total_memory_size, print_cr};
 use std::sync::mpsc::channel;
 use workerpool::Pool;
 use workerpool::thunk::{Thunk, ThunkWorker};
@@ -19,7 +19,8 @@ use colored::control::set_virtual_terminal;
 fn main() {
     #[cfg(windows)]
     set_virtual_terminal(true).expect("cannot use vertural terminal?");
-    println!("bc4py proof of capacity plotter.");
+
+    print_cr("bc4py proof of capacity plotter".to_owned(), true);
     let mode = ask_user("select mode \"plot\" or \"join\"?", "plot");
     let dest = ask_user("destination path?", "./plots");
     let mut address = ask_user("input address or do nothing if use node", "<AddressFormat>");
@@ -43,15 +44,15 @@ fn main() {
         let start: usize = ask_user("start nonce?", "0").parse().unwrap();
         match plot_joiner(&address, length, start, &src, &dest) {
             Ok(_) => (),
-            Err(err) => println!("error: {}", err)
+            Err(err) => print_cr(format!("error: {}", err), true)
         }
-        println!("\nfinish all work");
+        print_cr("finish all work".to_owned(), true);
         return;
     }
 
     // only pass plot mode
     if &mode != "plot" {
-        println!("error: unknown type {}", mode);
+        print_cr(format!("error: unknown type {}", mode), true);
         return;
     }
 
@@ -69,14 +70,14 @@ fn main() {
         if &check == "ok" {
             break;
         } else {
-            println!("retry");
+            print_cr("retry".to_owned(), true);
         };
     };
     let worker_num: usize = ask_user("how many worker?", "1")
         .parse().expect("worker size is number");
     let max_memory_size = get_total_memory_size() / worker_num / 2;
-    println!("{} workers and {}MB for each use", worker_num, max_memory_size);
-    println!("finish all parameter questions. wait...");
+    print_cr(format!("{} workers and {}MB for each use", worker_num, max_memory_size), true);
+    print_cr("finish all parameter questions. wait...".to_owned(), true);
 
     // throw jobs to worker pool
     let (tx, rx) = channel();
@@ -95,21 +96,20 @@ fn main() {
 
     // waiting for result
     let now = Instant::now();
-    println!("\rmsg: success throw {} jobs, waiting...", section_num);
+    print_cr(format!("msg: success throw {} jobs, waiting...", section_num), true);
     for (index, (start_pos, end_pos, result)) in rx.iter().enumerate() {
         let index = index as u32 + 1;
         match result {
-            Ok(_) => println!("\rmsg: finish {} to {} nonce, {}/{}section, {}minutes passed",
+            Ok(_) => print_cr(format!("msg: finish {} to {} nonce, {}/{}section, {}minutes passed",
                  start_pos.to_string().bold(), end_pos.to_string().bold(),
-                 index, section_num, now.elapsed().as_secs() / 60),
-            Err(err_string) => eprintln!("\rError: {}", err_string.bold())
+                 index, section_num, now.elapsed().as_secs() / 60), false),
+            Err(err_string) => print_cr(format!("Error: {}", err_string.bold()), true)
         };
         if index  == section_num {
             break;
         }
     };
-    println!(" ");
-    println!("finish all jobs, {}minutes", now.elapsed().as_secs() / 60);
+    print_cr(format!("finish all jobs, {}minutes", now.elapsed().as_secs() / 60), true);
 }
 
 #[cfg(test)]

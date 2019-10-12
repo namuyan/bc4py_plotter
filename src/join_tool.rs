@@ -1,7 +1,8 @@
 use crate::pochash::{HASH_LOOP_COUNT,HASH_LENGTH};
+use crate::utils::print_cr;
 use crate::cli_tool::ask_user;
 use std::fs::{read_dir, rename, File};
-use std::io::{stdout, BufReader, BufWriter, Read, Write, Seek, SeekFrom};
+use std::io::{BufReader, BufWriter, Read, Write, Seek, SeekFrom};
 use std::path::Path;
 use std::time::Instant;
 use regex::Regex;
@@ -31,7 +32,7 @@ pub fn plot_joiner(address: &str, length: usize, start: usize, src: &str, dest: 
                 files.push((path, start, end))
             },
             None => {
-                println!("msg: ignore file {}", name)
+                print_cr(format!("msg: ignore file {}", name), true)
             }
         }
     }
@@ -57,9 +58,9 @@ pub fn plot_joiner(address: &str, length: usize, start: usize, src: &str, dest: 
 
 
     // ask user
-    println!("msg: Let's join with {} files", join_order.len());
+    print_cr(format!("msg: Let's join with {} files", join_order.len()), true);
     for (index, path) in join_order.iter().enumerate() {
-        println!("msg: {} {:?}", index, path.file_name().unwrap());
+        print_cr(format!("msg: {} {:?}", index, path.file_name().unwrap()), true);
     }
     let a = ask_user("ok?", "ok");
     if a != "ok" {return Err("user stopped".to_owned());}
@@ -85,13 +86,14 @@ pub fn plot_joiner(address: &str, length: usize, start: usize, src: &str, dest: 
 
         let passed_sec = now.elapsed().as_secs() as usize;
         let remain_sec = passed_sec * scope_number / (scope + 1);
-        print!("\r{}/{} finish copy scope, {}m passed {}m remains",
-                 scope + 1, scope_number, passed_sec/60, remain_sec/60);
-        stdout().flush().unwrap();
+        print_cr(format!("{}/{} finish copy scope, {}m passed {}m remains",
+                         scope + 1, scope_number, passed_sec/60, remain_sec/60), false);
     }
 
     let output = format!("optimized.{}-{}-{}.dat", address, start, start+length*join_order.len());
     let output = Path::new(dest).join(output);
     rename(work_file, output).unwrap();
+
+    print_cr(format!("{}m passed to finish join job", now.elapsed().as_secs()/60), true);
     Ok(())
 }
